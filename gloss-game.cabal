@@ -1,0 +1,45 @@
+Name:                   gloss-game
+Version:                0.1.0.0
+Cabal-version:          >= 1.6
+Tested-with:            GHC >= 7.6
+Build-type:             Simple
+
+Synopsis:               Gloss wrapper that simplifies writing games
+Description:
+  The game interface of the basic Gloss library combines frame-based rendering with user input into a simple 2D game API.
+  Gloss.Game improves that API to make common tasks in game programming, such as, on demand image loading, animations, and
+  event handler chains more convenient.
+
+License:                BSD3
+License-file:           LICENSE
+Author:                 Manuel M T Chakravarty
+Maintainer:             Manuel M T Chakravarty <chak@cse.unsw.edu.au>
+Bug-reports:            https://github.com/mchakravarty/gloss-game/issues
+Homepage:               https://github.com/mchakravarty/gloss-game
+
+Category:               Graphics, Game
+Stability:              Experimental
+
+Library
+  Build-depends:        base                    >= 4,
+                        gloss                   >= 1.8,
+                        gloss-juicy             >= 0.1.2
+
+  Exposed-modules:      Graphics.Gloss.Game
+
+  ghc-options:          -O2
+                        -Wall
+                        -fwarn-tabs
+                        -fno-warn-name-shadowing
+
+  ghc-prof-options:     -auto-all
+
+  -- Don't add the extensions list here. Instead, place individual LANGUAGE
+  -- pragmas in the files that require a specific extension. This means the
+  -- project loads in GHCi, and avoids extension clashes.
+  --
+  -- Extensions:
+
+source-repository head
+  type:                 git
+  location:             https://github.com/mchakravarty/gloss-game
