@@ -1,5 +1,5 @@
 Name:                   gloss-game
-Version:                0.1.0.0
+Version:                0.1.0.1
 Cabal-version:          >= 1.6
 Tested-with:            GHC >= 7.6
 Build-type:             Simple
@@ -20,6 +20,10 @@ Homepage:               https://github.com/mchakravarty/gloss-game
 Category:               Graphics, Game
 Stability:              Experimental
 
+Extra-source-files:     examples/slime/Main.hs
+                        examples/slime/Slime.bmp
+                        examples/slime/SlimeBall.bmp
+  
 Library
   Build-depends:        base                    >= 4,
                         gloss                   >= 1.8,
