@@ -24,7 +24,7 @@ module Graphics.Gloss.Game (
   boundingBox,
   
     -- * More convenient game play
-  play,
+  play, playInScene,
   
     -- * Game scenes
   Scene, picture, translating, rotating, scaling, scenes,
@@ -122,6 +122,20 @@ play display bg fps world draw handler steppers
     perform []                 _time world = world
     perform (stepper:steppers) time  world = perform steppers time (stepper time world)
 
+-- |Play a game in a scene.
+--
+playInScene :: Display                      -- ^Display mode
+            -> Color                        -- ^Background color
+            -> Int                          -- ^Number of simulation steps to take for each second of real time
+            -> world                        -- ^The initial world state
+            -> Scene world                  -- ^A scene parameterised by the world
+            -> (Event -> world -> world)    -- ^A function to handle individual input events
+            -> [Float -> world -> world]    -- ^Set of functions invoked once per iteration —
+                                            --  first argument is the period of time (in seconds) needing to be advanced
+            -> IO ()
+playInScene display bg fps world scene handler steppers
+  = play display bg fps world (drawScene scene) handler steppers
+
 
 -- Scenes are parameterised pictures
 -- ---------------------------------
@@ -171,9 +185,9 @@ animating :: (world -> Float) -> Int -> [Picture] -> Scene world
 
 -- |Render a scene on the basis of a specific world state — slots right into the draw function argument of 'play'.
 --
-drawScene :: world -> Scene world -> Picture
-drawScene world (Picture draw)               = draw world
-drawScene world (Translating movement scene) = let (x, y) = movement world in translate x y (drawScene world scene)
-drawScene world (Rotating rotation scene)    = rotate (rotation world) (drawScene world scene)
-drawScene world (Scaling scaling scene)      = let (xf, yf) = scaling world in scale xf yf (drawScene world scene)
-drawScene world (Scenes scenes)              = pictures $ map (drawScene world) scenes
+drawScene :: Scene world -> world -> Picture
+drawScene (Picture draw) world               = draw world
+drawScene (Translating movement scene) world = let (x, y) = movement world in translate x y (drawScene scene world)
+drawScene (Rotating rotation scene) world    = rotate (rotation world) (drawScene scene world)
+drawScene (Scaling scaling scene) world      = let (xf, yf) = scaling world in scale xf yf (drawScene scene world)
+drawScene (Scenes scenes) world              = pictures $ map (flip drawScene world) scenes
