@@ -27,12 +27,13 @@ module Graphics.Gloss.Game (
   play, playInScene,
   
     -- * Game scenes
-  Scene, picture, picturing, translating, rotating, scaling, scenes,
-  -- animating,
+  Animation, animation, noAnimation,
+  Scene, picture, picturing, animating, translating, rotating, scaling, scenes,
   drawScene,
 ) where
 
   -- standard libraries
+import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 
   -- packages
@@ -42,7 +43,8 @@ import Graphics.Gloss.Data.Picture        hiding (Picture(..))
 import Graphics.Gloss.Data.Picture        (Picture)             -- keep 'Picture' abstract
 import Graphics.Gloss.Interface.Pure.Game (Event(..), Key(..), SpecialKey(..), MouseButton(..), KeyState(..))
 import Graphics.Gloss.Juicy
-import qualified Graphics.Gloss as G
+import qualified Graphics.Gloss                   as G
+import qualified Graphics.Gloss.Interface.IO.Game as G
 
 
 -- Geometry
@@ -122,33 +124,79 @@ play display bg fps world draw handler steppers
     perform []                 _time world = world
     perform (stepper:steppers) time  world = perform steppers time (stepper time world)
 
+-- Global variable to keep track of the time since we started playing (there can only always be one game anyway).
+--
+currentTime :: IORef Float
+{-# NOINLINE currentTime #-}
+currentTime = unsafePerformIO $ newIORef 0
+
 -- |Play a game in a scene.
 --
-playInScene :: Display                      -- ^Display mode
-            -> Color                        -- ^Background color
-            -> Int                          -- ^Number of simulation steps to take for each second of real time
-            -> world                        -- ^The initial world state
-            -> Scene world                  -- ^A scene parameterised by the world
-            -> (Event -> world -> world)    -- ^A function to handle individual input events
-            -> [Float -> world -> world]    -- ^Set of functions invoked once per iteration —
-                                            --  first argument is the period of time (in seconds) needing to be advanced
+playInScene :: Display                               -- ^Display mode
+            -> Color                                 -- ^Background color
+            -> Int                                   -- ^Number of simulation steps to take for each second of real time
+            -> world                                 -- ^The initial world state
+            -> Scene world                           -- ^A scene parameterised by the world
+            -> (Float -> Event -> world -> world)    -- ^A function to handle individual input events
+                                                     --  * first argument is the absolute time (in seconds)
+            -> [Float -> Float -> world -> world]    -- ^Set of functions invoked once per iteration —
+                                                     --  * first argument is the absolute time (in seconds)
+                                                     --  * second argument is the period of time needing to be advanced
             -> IO ()
 playInScene display bg fps world scene handler steppers
-  = play display bg fps world (drawScene scene) handler steppers
+  = G.playIO display bg fps world drawSceneNow performHandler (advanceTimeAndPerform steppers)
+  where
+    drawSceneNow world
+      = do
+        { now <- readIORef currentTime
+        ; return $ drawScene scene now world
+        }
+        
+    performHandler event world 
+      = do
+        { now <- readIORef currentTime
+        ; return $ handler now event world
+        }
+
+    advanceTimeAndPerform steppers deltaT world
+      = do 
+        { now <- readIORef currentTime
+        ; let future = now + deltaT
+        ; writeIORef currentTime future
+        ; perform steppers future deltaT world
+        }
+
+    perform []                 _now _deltaT world = return world
+    perform (stepper:steppers) now  deltaT  world = perform steppers now deltaT (stepper now deltaT world)
 
 
 -- Scenes are parameterised pictures
 -- ---------------------------------
 
--- A scene describes the rendering of a world state — i.e., which picture should be draw depending on the current state
--- of the world.
+-- |An abstract representation of an animation.
+--
+data Animation = Animation [Picture] Float Float
+
+-- |Construct a new animation with a list of pictures for the animation, the time between animation frames, and a given
+-- (absolute) start time.
+--
+animation :: [Picture] -> Float -> Float -> Animation
+animation = Animation
+
+-- |An empty animation.
+--
+noAnimation :: Animation
+noAnimation = animation [] 1 0
+
+-- |A scene describes the rendering of a world state — i.e., which picture should be draw depending on the current time
+-- and of the state of the world.
 --
 data Scene world
-  = Picture (world -> Picture)
-  | Translating (world -> Point) (Scene world)
-  | Rotating (world -> Float) (Scene world)
-  | Scaling (world -> (Float, Float)) (Scene world)
-  | Scenes [Scene world]
+  = Picturing   (Float -> world -> Picture)
+  | Translating (         world -> Point)          (Scene world)
+  | Rotating    (         world -> Float)          (Scene world)
+  | Scaling     (         world -> (Float, Float)) (Scene world)
+  | Scenes                                         [Scene world]
 
 -- |Turn a static picture into a scene.
 --
@@ -158,7 +206,20 @@ picture p = picturing (const p)
 -- |Turn a world-dependent picture into a scene.
 --
 picturing :: (world -> Picture) -> Scene world
-picturing = Picture
+picturing worldToPic = Picturing (const worldToPic)
+
+-- |Animate a world-dependent animation. The default picture is displayed while no animation is running.
+--
+animating :: (world -> Animation) -> Picture -> Scene world
+animating anim defaultPic
+  = Picturing (\currentTime world -> pickPicture currentTime (anim world))
+  where
+    pickPicture now (Animation pics delay start)
+      | start > now      = defaultPic
+      | i >= length pics = defaultPic
+      | otherwise        = pics !! i
+      where
+        i = round ((now - start) / delay)
 
 -- |Move a scene in dependences on a world-dependent location.
 --
@@ -180,19 +241,13 @@ scaling = Scaling
 scenes :: [Scene world] -> Scene world
 scenes = Scenes
 
-{-
--- Turn a list of pictures into an animation with a given frame rate.
+-- |Render a scene on the basis of time since playing started and the specific world state.
 --
--- When the animation reaches the last frame, it turns into a still picture of that frame.
---
-animating :: (world -> Float) -> Int -> [Picture] -> Scene world
--}
-
--- |Render a scene on the basis of a specific world state — slots right into the draw function argument of 'play'.
---
-drawScene :: Scene world -> world -> Picture
-drawScene (Picture draw) world               = draw world
-drawScene (Translating movement scene) world = let (x, y) = movement world in translate x y (drawScene scene world)
-drawScene (Rotating rotation scene) world    = rotate (rotation world) (drawScene scene world)
-drawScene (Scaling scaling scene) world      = let (xf, yf) = scaling world in scale xf yf (drawScene scene world)
-drawScene (Scenes scenes) world              = pictures $ map (flip drawScene world) scenes
+drawScene :: Scene world -> Float -> world -> Picture
+drawScene scene time world = drawS scene
+  where
+    drawS (Picturing draw)             = draw time world
+    drawS (Translating movement scene) = let (x, y) = movement world in translate x y (drawS scene)
+    drawS (Rotating rotation scene)    = rotate (rotation world) (drawS scene)
+    drawS (Scaling scaling scene)      = let (xf, yf) = scaling world in scale xf yf (drawS scene)
+    drawS (Scenes scenes)              = pictures $ map drawS scenes

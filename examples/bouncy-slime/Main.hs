@@ -14,6 +14,14 @@ height = 400
 slimeSprite :: Picture
 slimeSprite = bmp "Slime.bmp"
 
+slimeBounceSprites :: [Picture]
+slimeBounceSprites 
+  = [ scale 0.5 0.5 $ bmp "Slime2.bmp"
+    , scale 0.5 0.5 $ bmp "Slime3.bmp"
+    , scale 0.5 0.5 $ bmp "Slime4.bmp"
+    , scale 0.5 0.5 $ bmp "Slime2.bmp"
+    ]
+
 platformSprite :: Picture
 platformSprite = bmp "Platform.bmp"
 
@@ -38,6 +46,7 @@ data World
     { pressedKeys   :: [Char]
     , slimePos      :: Point
     , slimeVelocity :: Float
+    , slimeAnim     :: Animation
     }
 
 initialWorld :: World
@@ -46,6 +55,7 @@ initialWorld
     { pressedKeys   = []
     , slimePos      = (-200, 0)
     , slimeVelocity = 0
+    , slimeAnim     = noAnimation
     }
 
 
@@ -56,21 +66,24 @@ main
   = playInScene (InWindow "Bouncy Slime" (round width, round height) (50, 50)) white 30 initialWorld level handle
     [applyMovement, applyVelocity, applyGravity]
   where
-    handle (EventKey (Char c) Down _ _)              world = world {pressedKeys = c : pressedKeys world}
-    handle (EventKey (Char c) Up   _ _)              world = world {pressedKeys = filter (/= c) (pressedKeys world)}
-    handle (EventKey (SpecialKey KeySpace) Down _ _) world = world {slimeVelocity = 10}
-    handle _event                         world            = world
+    handle _now (EventKey (Char c) Down _ _)              world = world {pressedKeys = c : pressedKeys world}
+    handle _now (EventKey (Char c) Up   _ _)              world = world {pressedKeys = filter (/= c) (pressedKeys world)}
+    handle _now (EventKey (SpecialKey KeySpace) Down _ _) world = world {slimeVelocity = 10}
+    handle _now _event                         world            = world
 
-    applyMovement _ world | 'a' `elem` pressedKeys world = world {slimePos = moveX (slimePos world) (-10)}
-                          | 'd' `elem` pressedKeys world = world {slimePos = moveX (slimePos world) 10}
-                          | otherwise                    = world                
+    applyMovement _ _ world | 'a' `elem` pressedKeys world = world {slimePos = moveX (slimePos world) (-10)}
+                            | 'd' `elem` pressedKeys world = world {slimePos = moveX (slimePos world) 10}
+                            | otherwise                    = world                
     
-    applyVelocity _ world
+    applyVelocity _ _ world
       = world {slimePos = moveY (slimePos world) (slimeVelocity world)}
     
-    applyGravity _ world
+    applyGravity now _ world
       | onTheFloor world
-        || onThePlatform world = world {slimeVelocity = slimeVelocity world * (-0.5)}
+        || onThePlatform world = world { slimeVelocity = slimeVelocity world * (-0.5)
+                                       , slimeAnim     = if slimeVelocity world < -5
+                                                         then animation slimeBounceSprites 0.15 now
+                                                         else noAnimation}
       | otherwise              = world {slimeVelocity = slimeVelocity world + gravitationalConstant}
     
     onTheFloor world = snd (slimePos world) <= (-height / 2) + slimeHeight / 2
@@ -104,6 +117,6 @@ moveY (x, y) offset
 
 level :: Scene World
 level = scenes
-        [ translating slimePos (picture (scale 0.5 0.5 slimeSprite))
-        , picture (translate (fst platformPos) (snd platformPos) (scale 0.5 0.5 platformSprite))
+        [ translating slimePos $ animating slimeAnim (scale 0.5 0.5 slimeSprite)
+        , picture              $ (translate (fst platformPos) (snd platformPos) (scale 0.5 0.5 platformSprite))
         ]
