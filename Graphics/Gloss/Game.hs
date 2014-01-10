@@ -27,7 +27,7 @@ module Graphics.Gloss.Game (
   play, playInScene,
   
     -- * Game scenes
-  Scene, picture, translating, rotating, scaling, scenes,
+  Scene, picture, picturing, translating, rotating, scaling, scenes,
   -- animating,
   drawScene,
 ) where
@@ -150,10 +150,15 @@ data Scene world
   | Scaling (world -> (Float, Float)) (Scene world)
   | Scenes [Scene world]
 
+-- |Turn a static picture into a scene.
+--
+picture :: Picture -> Scene world
+picture p = picturing (const p)
+
 -- |Turn a world-dependent picture into a scene.
 --
-picture :: (world -> Picture) -> Scene world
-picture = Picture
+picturing :: (world -> Picture) -> Scene world
+picturing = Picture
 
 -- |Move a scene in dependences on a world-dependent location.
 --
