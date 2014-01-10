@@ -65,7 +65,7 @@ moveY (x, y) offset = if y + offset > 200 - creeperHeight / 2
                       then (x, 200 - creeperHeight / 2)
                       else if y + offset < (-200) + creeperHeight / 2
                       then (x, (-200) + creeperHeight / 2)
-                      else if y < snd platformPos + creeperHeight / 2 + platformHeight / 2 
+                      else if y + offset < snd platformPos + creeperHeight / 2 + platformHeight / 2 
                               && x + creeperWidth / 2 > fst platformPos - platformWidth / 2
                               && x - creeperWidth / 2 < fst platformPos + platformWidth / 2
                       then (x, snd platformPos + creeperHeight / 2 + platformHeight / 2)
