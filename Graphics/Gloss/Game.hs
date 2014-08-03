@@ -27,13 +27,14 @@ module Graphics.Gloss.Game (
   play, playInScene,
   
     -- * Game scenes
-  Animation, animation, noAnimation,
+  Animation, animation, noAnimation, animationPicture,
   Scene, picture, picturing, animating, translating, rotating, scaling, scenes,
   drawScene,
 ) where
 
   -- standard libraries
 import Data.IORef
+import Data.Maybe
 import System.IO.Unsafe (unsafePerformIO)
 
   -- packages
@@ -188,6 +189,14 @@ animation = Animation
 noAnimation :: Animation
 noAnimation = animation [] 1 0
 
+animationPicture :: Animation -> Float -> Maybe Picture
+animationPicture (Animation pics delay start) time
+  | start > time     = Nothing
+  | i >= length pics = Nothing
+  | otherwise        = Just $ pics !! i
+  where
+    i = round ((time - start) / delay)
+
 -- |A scene describes the rendering of a world state — i.e., which picture should be draw depending on the current time
 -- and of the state of the world.
 --
@@ -212,14 +221,7 @@ picturing worldToPic = Picturing (const worldToPic)
 --
 animating :: (world -> Animation) -> Picture -> Scene world
 animating anim defaultPic
-  = Picturing (\currentTime world -> pickPicture currentTime (anim world))
-  where
-    pickPicture now (Animation pics delay start)
-      | start > now      = defaultPic
-      | i >= length pics = defaultPic
-      | otherwise        = pics !! i
-      where
-        i = round ((now - start) / delay)
+  = Picturing (\currentTime world -> fromMaybe defaultPic $ animationPicture (anim world) currentTime)
 
 -- |Move a scene in dependences on a world-dependent location.
 --
@@ -251,3 +253,9 @@ drawScene scene time world = drawS scene
     drawS (Rotating rotation scene)    = rotate (rotation world) (drawS scene)
     drawS (Scaling scaling scene)      = let (xf, yf) = scaling world in scale xf yf (drawS scene)
     drawS (Scenes scenes)              = pictures $ map drawS scenes
+
+
+-- -- Game objects
+-- -- ------------
+-- 
+-- data Object objClass = 
