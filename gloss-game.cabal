@@ -35,7 +35,7 @@ Extra-source-files:     examples/slime/Main.hs
   
 Library
   Build-depends:        base                    >= 4 && < 5,
-                        gloss                   >= 1.8,
+                        gloss                   >= 1.13,
                         gloss-juicy             >= 0.1.2
 
   Exposed-modules:      Graphics.Gloss.Game
