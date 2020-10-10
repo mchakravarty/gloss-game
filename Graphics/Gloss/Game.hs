@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 -- |
 -- Module      : Main
 -- Copyright   : [2013] Manuel M T Chakravarty
@@ -97,7 +98,8 @@ boundingBox (G.ThickCircle t r)        = ((0, 0), (2 * r + t, 2 * r + t))
 boundingBox (G.Arc _ _ _)              = error "Graphics.Gloss.Game.boundingbox: Arc not implemented yet"
 boundingBox (G.ThickArc _ _ _ _)       = error "Graphics.Gloss.Game.boundingbox: ThickArc not implemented yet"
 boundingBox (G.Text _)                 = error "Graphics.Gloss.Game.boundingbox: Text not implemented yet"
-boundingBox (G.Bitmap w h _ _)         = ((0, 0), (fromIntegral w, fromIntegral h))
+boundingBox (G.Bitmap (G.bitmapSize -> (w, h)))
+                                       = ((0, 0), (fromIntegral w, fromIntegral h))
 boundingBox (G.Color _ p)              = boundingBox p
 boundingBox (G.Translate dx dy p)      = let ((x, y), size) = boundingBox p in ((x + dx, y + dy), size)
 boundingBox (G.Rotate _ang _p)         = error "Graphics.Gloss.Game.boundingbox: Rotate not implemented yet"
